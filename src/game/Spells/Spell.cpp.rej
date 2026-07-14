@@ -1,0 +1,11 @@
+diff a/src/game/Spells/Spell.cpp b/src/game/Spells/Spell.cpp	(rejected hunks)
+@@ -4296,6 +4304,9 @@ void Spell::finish(bool ok)
+     if (!ok)
+         return;
+ 
++    if (sCombatEventLog.IsEnabled() && !m_IsTriggeredSpell && m_caster)
++        sCombatEventLog.LogCastSuccess(m_caster, m_targets.getUnitTargetGuid(), m_spellInfo);
++
+     // Heal caster for all health leech from all targets
+     if (m_healthLeech)
+     {

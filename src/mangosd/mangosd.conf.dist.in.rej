@@ -1,0 +1,11 @@
+diff a/src/mangosd/mangosd.conf.dist.in b/src/mangosd/mangosd.conf.dist.in	(rejected hunks)
+@@ -430,6 +451,9 @@ LogLevel = 1
+ LogTime = 0
+ LogFile = "Server.log"
+ PacketLogFile = ""
++CombatEventLog.Enable = 0
++CombatEventLog.File = "combat_events.jsonl"
++CombatEventLog.Scope = 0
+ LogTimestamp = 0
+ LogFileLevel = 0
+ LogFilter_AchievementUpdates = 1

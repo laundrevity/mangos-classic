@@ -1,0 +1,30 @@
+diff a/src/game/Entities/Unit.cpp b/src/game/Entities/Unit.cpp	(rejected hunks)
+@@ -36,6 +36,7 @@
+ #include "Entities/Pet.h"
+ #include "Util/Util.h"
+ #include "Entities/Totem.h"
++#include "Combat/CombatEventLog.h"
+ #include "Entities/Vehicle.h"
+ #include "BattleGround/BattleGround.h"
+ #include "Maps/InstanceData.h"
+@@ -5577,6 +5586,9 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder* holder)
+                     static_cast<Player*>(caster)->UpdateForQuestWorldObjects();
+     }
+ 
++    if (sCombatEventLog.IsEnabled() && !holder->IsDeleted())
++        sCombatEventLog.LogAura(holder, true, 0);
++
+     return true;
+ }
+ 
+@@ -7908,6 +7923,10 @@ int32 Unit::DealHeal(Unit* pVictim, uint32 addhealth, SpellEntry const* spellInf
+     if (GetTypeId() == TYPEID_UNIT && ((Creature*)this)->IsTotem() && ((Totem*)this)->GetTotemType() != TOTEM_STATUE)
+         unit = GetOwner();
+ 
++    // raw = requested heal, gain = health actually added: exact overheal server-side
++    if (sCombatEventLog.IsEnabled())
++        sCombatEventLog.LogHeal(unit, pVictim, addhealth, gain, spellInfo, critical);
++
+     // overheal = addhealth - gain
+     unit->SendHealSpellLog(pVictim, spellInfo->Id, addhealth, addhealth - gain, critical, absorb);
+ 

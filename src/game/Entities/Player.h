@@ -1874,7 +1874,7 @@ class Player : public Unit
         /*********************************************************/
 
         bool InBattleGround()       const                { return m_bgData.bgInstanceID != 0; }
-        bool InArena()              const;
+        bool InArena()              const                { return false; }  // vanilla: declared upstream but never defined
         uint32 GetBattleGroundId()  const                { return m_bgData.bgInstanceID; }
         BattleGroundTypeId GetBattleGroundTypeId() const { return m_bgData.bgTypeID; }
         BattleGround* GetBattleGround() const;

@@ -36,6 +36,7 @@
 #include "Entities/Pet.h"
 #include "Util/Util.h"
 #include "Entities/Totem.h"
+#include "Combat/CombatEventLog.h"
 #include "BattleGround/BattleGround.h"
 #include "Maps/InstanceData.h"
 #include "OutdoorPvP/OutdoorPvP.h"
@@ -895,6 +896,11 @@ void Unit::FallSuicide()
 
 uint32 Unit::DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage const* cleanDamage, DamageEffectType damagetype, SpellSchoolMask damageSchoolMask, SpellEntry const* spellInfo, bool durabilityLoss, Spell* spell)
 {
+    // single authoritative damage sink: melee, spell, DoT, environmental and split
+    // damage all funnel through here (spell crit arrives via cleanDamage->hitOutCome)
+    if (sCombatEventLog.IsEnabled() && damage > 0 && damagetype != INSTAKILL)
+        sCombatEventLog.LogDamage(dealer, victim, damage, damageSchoolMask, spellInfo, damagetype, cleanDamage && cleanDamage->hitOutCome == MELEE_HIT_CRIT);
+
     // remove affects from attacker at any non-DoT damage (including 0 damage)
     if (damagetype != DOT && damagetype != INSTAKILL)
     {
@@ -1013,6 +1019,9 @@ uint32 Unit::DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage c
 void Unit::Kill(Unit* killer, Unit* victim, DamageEffectType damagetype, SpellEntry const* spellInfo, bool durabilityLoss, bool duel_hasEnded)
 {
     DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamage %s Killed %s", killer ? killer->GetGuidStr().c_str() : "", victim->GetGuidStr().c_str());
+
+    if (sCombatEventLog.IsEnabled())
+        sCombatEventLog.LogDeath(killer, victim);
 
     /*
     *  Preparation: Who gets credit for killing whom, invoke SpiritOfRedemtion?
@@ -4851,6 +4860,9 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder* holder)
             ++m_hasHeartbeatProcCounter;
     }
 
+    if (sCombatEventLog.IsEnabled() && !holder->IsDeleted())
+        sCombatEventLog.LogAura(holder, true, 0);
+
     return true;
 }
 
@@ -5312,6 +5324,9 @@ void Unit::RemoveNotOwnTrackedTargetAuras()
 void Unit::RemoveSpellAuraHolder(SpellAuraHolder* holder, AuraRemoveMode mode)
 {
     MANGOS_ASSERT(!holder->IsDeleted());
+
+    if (sCombatEventLog.IsEnabled())
+        sCombatEventLog.LogAura(holder, false, mode);
 
     // Statue unsummoned at holder remove
     SpellEntry const* aurSpellInfo = holder->GetSpellProto();
@@ -6881,6 +6896,10 @@ int32 Unit::DealHeal(Unit* pVictim, uint32 addhealth, SpellEntry const* spellInf
     if (GetTypeId() == TYPEID_UNIT && ((Creature*)this)->IsTotem() && ((Totem*)this)->GetTotemType() != TOTEM_STATUE)
         unit = GetOwner();
 
+    // raw = requested heal, gain = health actually added: exact overheal server-side
+    if (sCombatEventLog.IsEnabled())
+        sCombatEventLog.LogHeal(unit, pVictim, addhealth, gain, spellInfo, critical);
+
     if (unit->GetTypeId() == TYPEID_PLAYER)
         unit->SendHealSpellLog(pVictim, spellInfo->Id, addhealth, critical);
 
@@ -7901,6 +7920,10 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy)
     bool notInCombat = !HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IN_COMBAT);
     bool creatureNotInCombat = GetTypeId() == TYPEID_UNIT && notInCombat;
 
+    // transition only (flag not yet set)
+    if (sCombatEventLog.IsEnabled() && notInCombat)
+        sCombatEventLog.LogCombatState(this, true, enemy);
+
     // For player itself and his pet during pvp combat enable own combat timer
     if (PvP || creatureNotInCombat)
         GetCombatManager().TriggerCombatTimer(PvP);
@@ -8021,6 +8044,10 @@ void Unit::EngageInCombatWithAggressor(Unit* aggressor)
 
 void Unit::ClearInCombat()
 {
+    // transition only (flag still set)
+    if (sCombatEventLog.IsEnabled() && HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IN_COMBAT))
+        sCombatEventLog.LogCombatState(this, false, nullptr);
+
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IN_COMBAT);
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PET_IN_COMBAT);
 
