@@ -18,6 +18,11 @@
 
 #include "Entities/Unit.h"
 #include "Log/Log.h"
+
+#if defined(__APPLE__) || defined(__linux__)
+#include <execinfo.h>
+#include <ctime>
+#endif
 #include "Server/Opcodes.h"
 #include "Server/WorldPacket.h"
 #include "Server/WorldSession.h"
@@ -1462,7 +1467,34 @@ SpellCastResult Unit::CastSpell(Unit* Victim, uint32 spellId, uint32 triggeredFl
         if (triggeredByAura)
             sLog.outError("CastSpell: unknown spell id %i by caster: %s triggered by aura %u (eff %u)", spellId, GetGuidStr().c_str(), triggeredByAura->GetId(), triggeredByAura->GetEffIndex());
         else
-            sLog.outError("CastSpell: unknown spell id %i by caster: %s", spellId, GetGuidStr().c_str());
+        {
+            sLog.outError("CastSpell: unknown spell id %i by caster: %s (castItem %u, triggeredBy %u)",
+                          spellId, GetGuidStr().c_str(), castItem ? castItem->GetEntry() : 0,
+                          triggeredBy ? triggeredBy->Id : 0);
+#if defined(__APPLE__) || defined(__linux__)
+            // instrumentation for the Blizzard-tick spell-id-0 bursts (387
+            // aura-less calls in one run, source unknown): name the caller
+            // once per minute via a native backtrace
+            if (!spellId)
+            {
+                static time_t s_lastTraceAt = 0;
+                time_t now = time(nullptr);
+                if (now - s_lastTraceAt >= 60)
+                {
+                    s_lastTraceAt = now;
+                    void* frames[12];
+                    int depth = backtrace(frames, 12);
+                    char** symbols = backtrace_symbols(frames, depth);
+                    if (symbols)
+                    {
+                        for (int i = 1; i < depth; ++i)
+                            sLog.outError("CastSpell id0 frame %d: %s", i, symbols[i]);
+                        free(symbols);
+                    }
+                }
+            }
+#endif
+        }
         return SPELL_NOT_FOUND;
     }
 
