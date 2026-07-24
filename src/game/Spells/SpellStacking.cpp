@@ -252,6 +252,9 @@ bool SpellStacker::IsStackableAuraEffect(SpellEntry const* entry, SpellEntry con
                 return true;
             if (entry->Id == 15366 || entry2->Id == 15366) // Songflower Serenade - stacks with everything
                 return true;
+            if ((entry->Id == 20007 && entry2->Id == 16323) ||
+                (entry->Id == 16323 && entry2->Id == 20007))
+                return true; // Crusader's Holy Strength stacks with Juju Power
             if (entry->EffectMiscValue[effIdx] != entry2->EffectMiscValue[similar])
                 break;
             if (positive)
